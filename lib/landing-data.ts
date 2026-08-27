@@ -49,12 +49,39 @@ export const REPOS: Repo[] = [
   },
 ]
 
-/** Resolve the repository names carried between mock UI flow steps. */
+/** Resolve repository selections carried between the selection and preview steps. */
 export function getSelectedRepos(selection?: string | null): Repo[] {
   if (!selection) return []
 
+  const selectedRepositories = parseSelectedRepositories(selection)
+  if (selectedRepositories) return selectedRepositories
+
   const selected = new Set(selection.split(',').filter(Boolean))
   return REPOS.filter((repo) => selected.has(repo.name))
+}
+
+function parseSelectedRepositories(selection: string): Repo[] | null {
+  try {
+    const repositories: unknown = JSON.parse(selection)
+    if (!Array.isArray(repositories)) return null
+
+    return repositories.flatMap((repository) => {
+      if (!repository || typeof repository !== 'object' || !('name' in repository)) return []
+
+      const { name, description, tech, stars, forks } = repository
+      if (typeof name !== 'string') return []
+
+      return [{
+        name,
+        description: typeof description === 'string' ? description : '',
+        tech: Array.isArray(tech) ? tech.filter((item): item is string => typeof item === 'string') : [],
+        stars: typeof stars === 'number' ? stars : 0,
+        forks: typeof forks === 'number' ? forks : 0,
+      }]
+    })
+  } catch {
+    return null
+  }
 }
 
 export function getRepoSkills(repos: Repo[]): string[] {

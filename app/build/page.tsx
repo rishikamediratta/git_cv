@@ -13,9 +13,9 @@ export default function BuildPage() {
             index="01"
             eyebrow="Connect GitHub"
             title="Start with the work you have already shipped."
-            description="Enter a GitHub identity to load the GitCV product preview. This V0 flow uses local mock repository data only."
+            description="Enter a GitHub identity to load your public repository evidence."
           />
-          <TechnicalPanel label="github profile" meta="mock input" className="mt-10 max-w-2xl" bodyClassName="p-5 md:p-6">
+          <TechnicalPanel label="github profile" className="mt-10 max-w-2xl" bodyClassName="p-5 md:p-6">
             <GithubForm />
           </TechnicalPanel>
         </section>

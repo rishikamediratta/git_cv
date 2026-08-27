@@ -2,16 +2,65 @@
 
 import { ArrowRight, GitFork, Star } from 'lucide-react'
 import { useRouter } from 'next/navigation'
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
-import { REPOS } from '@/lib/landing-data'
+import {
+  fetchGitHubRepositories,
+  loadGitHubRepositories,
+  saveGitHubRepositories,
+  type GitHubRepository,
+} from '@/lib/github'
 import { cn } from '@/lib/utils'
 
 export function RepoSelection({ username, jobDescription }: { username?: string; jobDescription?: string }) {
   const router = useRouter()
   const [selected, setSelected] = useState<string[]>([])
+  const [repositories, setRepositories] = useState<GitHubRepository[]>([])
+  const [error, setError] = useState<string | null>(null)
+  const [isLoading, setIsLoading] = useState(Boolean(username))
+
+  useEffect(() => {
+    let isActive = true
+
+    async function loadRepositories() {
+      if (!username) {
+        setError('Enter a GitHub username to load repositories.')
+        setIsLoading(false)
+        return
+      }
+
+      const storedRepositories = loadGitHubRepositories(username)
+      if (storedRepositories) {
+        setRepositories(storedRepositories)
+        setIsLoading(false)
+        return
+      }
+
+      try {
+        const fetchedRepositories = await fetchGitHubRepositories(username)
+        if (!isActive) return
+        saveGitHubRepositories(username, fetchedRepositories)
+        setRepositories(fetchedRepositories)
+      } catch (caughtError) {
+        if (!isActive) return
+        setError(
+          caughtError instanceof Error
+            ? caughtError.message
+            : 'Unable to load GitHub repositories. Please try again.',
+        )
+      } finally {
+        if (isActive) setIsLoading(false)
+      }
+    }
+
+    void loadRepositories()
+
+    return () => {
+      isActive = false
+    }
+  }, [username])
 
   function toggleRepository(name: string) {
     setSelected((current) =>
@@ -22,7 +71,8 @@ export function RepoSelection({ username, jobDescription }: { username?: string;
   }
 
   function continueToPreview() {
-    const params = new URLSearchParams({ repos: selected.join(',') })
+    const selectedRepositories = repositories.filter((repository) => selected.includes(repository.name))
+    const params = new URLSearchParams({ repos: JSON.stringify(selectedRepositories) })
     if (username) params.set('username', username)
     if (jobDescription) params.set('jd', jobDescription)
     router.push(`/preview?${params.toString()}`)
@@ -38,7 +88,13 @@ export function RepoSelection({ username, jobDescription }: { username?: string;
       </div>
 
       <ul>
-        {REPOS.map((repo) => {
+        {isLoading ? (
+          <li className="p-4 text-sm text-muted-foreground">Loading repositories...</li>
+        ) : error ? (
+          <li className="p-4 text-sm text-destructive" role="alert">{error}</li>
+        ) : repositories.length === 0 ? (
+          <li className="p-4 text-sm text-muted-foreground">No public repositories found for this account.</li>
+        ) : repositories.map((repo) => {
           const isSelected = selected.includes(repo.name)
           return (
             <li key={repo.name} className="border-b border-border last:border-b-0">
@@ -70,8 +126,8 @@ export function RepoSelection({ username, jobDescription }: { username?: string;
       </ul>
 
       <div className="flex items-center justify-between gap-4 border-t border-border p-4">
-        <span className="label-mono text-faint">mock repository data</span>
-        <Button type="button" variant="brand" size="lg" onClick={continueToPreview} disabled={selected.length === 0}>
+        <span className="label-mono text-faint">live GitHub repository data</span>
+        <Button type="button" variant="brand" size="lg" onClick={continueToPreview} disabled={selected.length === 0 || isLoading || Boolean(error)}>
           Continue
           <ArrowRight />
         </Button>

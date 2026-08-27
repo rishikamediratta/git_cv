@@ -6,16 +6,43 @@ import { useState } from 'react'
 
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
+import {
+  fetchGitHubRepositories,
+  normalizeGitHubUsername,
+  saveGitHubRepositories,
+} from '@/lib/github'
 
 export function GithubForm() {
   const router = useRouter()
   const [identity, setIdentity] = useState('')
+  const [error, setError] = useState<string | null>(null)
+  const [isLoading, setIsLoading] = useState(false)
 
-  function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
+  async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault()
-    const value = identity.trim()
-    if (!value) return
-    router.push(`/build/jd?username=${encodeURIComponent(value)}`)
+    const username = normalizeGitHubUsername(identity)
+
+    if (!username) {
+      setError('Enter a GitHub username or profile URL.')
+      return
+    }
+
+    setError(null)
+    setIsLoading(true)
+
+    try {
+      const repositories = await fetchGitHubRepositories(username)
+      saveGitHubRepositories(username, repositories)
+      router.push(`/select?username=${encodeURIComponent(username)}`)
+    } catch (caughtError) {
+      setError(
+        caughtError instanceof Error
+          ? caughtError.message
+          : 'Unable to load GitHub repositories. Please try again.',
+      )
+    } finally {
+      setIsLoading(false)
+    }
   }
 
   return (
@@ -33,11 +60,12 @@ export function GithubForm() {
           required
           className="h-11"
         />
-        <Button type="submit" variant="brand" size="lg" disabled={!identity.trim()}>
-          Continue
+        <Button type="submit" variant="brand" size="lg" disabled={!identity.trim() || isLoading}>
+          {isLoading ? 'Loading...' : 'Continue'}
           <ArrowRight />
         </Button>
       </div>
+      {error ? <p className="label-mono text-destructive" role="alert">{error}</p> : null}
     </form>
   )
 }

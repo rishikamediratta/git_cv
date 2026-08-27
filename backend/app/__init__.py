@@ -1,0 +1,1 @@
+"""GitCV FastAPI application package."""

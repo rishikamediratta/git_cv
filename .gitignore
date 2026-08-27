@@ -26,3 +26,8 @@ yarn-error.log*
 *.tsbuildinfo
 next-env.d.ts
 .pnpm-store/
+
+# Python / FastAPI
+.venv/
+**/__pycache__/
+*.py[cod]
